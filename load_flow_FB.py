@@ -21,11 +21,13 @@ from  numpy import*
 from collections import OrderedDict
 
 
-case = load_case('casecineldi124.m')  
+case = load_case('case33bw.m')  
 Base_MVA=10
+V_base=12.66
 G = case.G
 branches = case.branch_list
 branches_data= case.branch_data_list
+%%Convert branches_data to pu 
 n = len(case.demands)
 slots=24
 nbranch=len(branches)
