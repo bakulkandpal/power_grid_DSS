@@ -13,9 +13,6 @@ from collections import OrderedDict
 line_data = pd.read_excel('line_33.xlsx')
 load_data = pd.read_excel('load_data_33.xlsx')
 
-active_load=load_data['P (kW)']
-reactive_load=load_data['Q (kW)']
-
 case = load_case('case33bw.m')  
 
 Base_KVA=10000
@@ -52,7 +49,26 @@ def branch_list_data_dict_combine(branches,branches_data):
 fulldict= branch_list_data_dict_combine(branches,branches_data)  
 
       
-def perform_load_flow(network_parameters):  
+def perform_load_flow(network_parameters):
+    
+    active_load=load_data['P (kW)']
+    reactive_load=load_data['Q (kW)']
+    
+    bus_no = network_parameters.get('bus_no', [])
+    bus_load_factors = network_parameters.get('bus_load_factors', [])   
+    
+    print("Before modification:", active_load[bus_no].to_dict())
+
+    if bus_no:
+        for i in range(len(bus_no)):
+            bus = bus_no[i]
+            factor = bus_load_factors[i]
+            if bus in active_load.index:
+                active_load.at[bus] *= factor
+                
+    print("After modification:", active_load[bus_no].to_dict()) 
+         
+    
     def load_flow(branches,branches_data,active_load,reactive_load):
        
         n = len(case.demands)
