@@ -1,12 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Oct  8 12:14:39 2022
-
-@author: rubir
-"""
-
-
-
 
 
 import pandas as pd
@@ -27,7 +18,8 @@ V_base=12.66
 G = case.G
 branches = case.branch_list
 branches_data= case.branch_data_list
-%%Convert branches_data to pu 
+
+##Convert branches_data to pu 
 n = len(case.demands)
 slots=24
 nbranch=len(branches)

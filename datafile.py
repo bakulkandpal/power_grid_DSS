@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Dec 23 18:29:00 2021
-
-@author: rubi
-"""
-
 
 from scipy.sparse import dok_matrix
 from collections import namedtuple
