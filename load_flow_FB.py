@@ -1,5 +1,3 @@
-
-
 import pandas as pd
 from math import asin
 import numpy as np
@@ -12,12 +10,24 @@ from  numpy import*
 from collections import OrderedDict
 
 
+line_data = pd.read_excel('line_33.xlsx')
+load_data = pd.read_excel('load_data_33.xlsx')
+
+active_load=load_data['P (kW)']
+reactive_load=load_data['Q (kW)']
+
 case = load_case('case33bw.m')  
-Base_MVA=10
-V_base=12.66
+
+Base_KVA=10000
+V_base=12.66  # In kV
+
+Z_base=(V_base*1000)**2 / (Base_KVA * 1000)
+
 G = case.G
 branches = case.branch_list
 branches_data= case.branch_data_list
+
+branches_data = [(x/Z_base, y/Z_base) for x, y in branches_data]  ## Per unit conversion
 
 ##Convert branches_data to pu 
 n = len(case.demands)
@@ -41,7 +51,7 @@ def branch_list_data_dict_combine(branches,branches_data):
         return (fulldict)    
 fulldict= branch_list_data_dict_combine(branches,branches_data)         
   
-def load_flow(branches,branches_data,t,active_load,reactive_load):
+def load_flow(branches,branches_data,active_load,reactive_load):
    
     n = len(case.demands)
      
@@ -50,7 +60,7 @@ def load_flow(branches,branches_data,t,active_load,reactive_load):
     
     for i in range(n):
     #print(i)
-        demand_data_dict[i]=complex(active_load[i][t]/Base_MVA,reactive_load[i][t]/Base_MVA)
+        demand_data_dict[i]=complex(active_load[i]/Base_KVA,reactive_load[i]/Base_KVA)
      
     itera=0
     key_list   = list(fulldict.keys())
@@ -88,16 +98,13 @@ def load_flow(branches,branches_data,t,active_load,reactive_load):
                  
          
             
-         
-        
         key_list   = list(demand_data_dict.keys())
         I_conj_list=[]
         for i in range(n):
             I_conj = conj(division_list[i])
             I_conj_list.append(I_conj)          
         
-        
-        
+                
      
         a= {}
         
@@ -108,7 +115,7 @@ def load_flow(branches,branches_data,t,active_load,reactive_load):
           conn = [item for item in range(len(fbus_list)) if fbus_list[item] == tbus_list[i]]
      
          
-          a[i]=sum(a[c]    for c in conn      ) +I_conj_list[tbus_list[i]]  
+          a[i]=sum(a[c] for c in conn) +I_conj_list[tbus_list[i]]  
     
        
         for i in reversed(range(nbranch)):
@@ -144,26 +151,22 @@ class loadflow(object):
     pass
 
 
-def case_powerflow(active_load,reactive_load,s):    
-    list_vol=[]
-    list_losses_hourly=[] 
-    for t in range(slots):
+def case_powerflow(active_load,reactive_load):    
+        list_vol=[]
+    
         
-        v_old_lines,a=load_flow(branches,branches_data,t,active_load,reactive_load)
+        v_old_lines,a=load_flow(branches,branches_data,active_load,reactive_load)
         a_list_old=(list(v_old_lines.values())  )
     
         res =  [abs(ele) for ele in a_list_old]
     
         list_vol.append(res)
         
-        loss_list      = loss_calculation(v_old_lines,a) # losses for each branches
-        sum_loss_list=sum(loss_list)
-        list_losses_hourly.append(sum_loss_list)  # saving hourly losses for whole network
 
-    return list_vol ,list_losses_hourly    
+        return list_vol, a 
 
 
-
+list_vol,a=case_powerflow(active_load,reactive_load)
 
     
 
