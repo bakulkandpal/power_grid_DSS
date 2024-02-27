@@ -1,3 +1,4 @@
+# Basic network reconfiguration where one chosen branch or line is removed and another is added to see impact on voltages and current.
 import pandas as pd
 from math import asin
 import numpy as np
@@ -18,29 +19,42 @@ active_load=load_data['P (kW)']
 reactive_load=load_data['Q (kW)']
 case = load_case('case33bw.m')  
 
-Base_KVA=10000
-V_base=12.66  # In kV
-
-Z_base=(V_base*1000)**2 / (Base_KVA * 1000)
+# Write both tuples (from bus, to bus) considering the order of how current is flowing or will flow after new connection.
+line_to_remove = (1, 18)  # Choose line to remove. (from bus, to bus) (IEEE 33 bus - substation is bus 0)
+line_to_add = (21, 32)   # Choose line to add (IEEE 33 bus)
 
 G = case.G
 branches = case.branch_list
 branches_data= case.branch_data_list
 nbranch=len(branches)
 
+Gt = nx.Graph()
+Gt.add_edges_from(branches) # Original branches of network
+Gt.remove_edge(*line_to_remove)
+Gt.add_edge(*line_to_add)
 
-model = ConcreteModel()
+original_line_to_add = line_to_add
+reversed_line_to_add = original_line_to_add[::-1]
 
-model.L=RangeSet(1,nbranch)
-model.line_switch = Var(model.L, domain=Binary)
+try:
+    path_one = nx.shortest_path(Gt, 0, original_line_to_add[1])
+    path_two = nx.shortest_path(Gt, 0, original_line_to_add[0])
+    if original_line_to_add[0] in path_one: 
+        line_to_add =  original_line_to_add
+    elif original_line_to_add[1] in path_two:
+        line_to_add =  reversed_line_to_add
+except nx.NetworkXNoPath:
+    print("No path")
+
+
+Base_KVA=10000
+V_base=12.66  # In kV
+Z_base=(V_base*1000)**2 / (Base_KVA * 1000)
 
 branches_data = [(x/Z_base, y/Z_base) for x, y in branches_data]  ## Per unit conversion
 
 ## Convert branches_data to pu 
 n = len(case.demands)
-slots=24
-
-possible_new_lines = [(2, 6), (3, 5), (4, 7)]  # For optimization
 
 G = nx.Graph()
 G.add_edges_from(branches) # Original branches of network
@@ -50,15 +64,13 @@ def check_radial_and_connected(graph, line_to_remove, line_to_add):
     temp_graph.remove_edge(*line_to_remove)  
     temp_graph.add_edge(*line_to_add)  
     
-    # Check if the network is still a single connected graph and has no cycles
+    # Check if the network is still a single connected graph and has no cycles to keep it radial.
     is_connected = nx.is_connected(temp_graph)
     has_no_cycles = not bool(list(nx.simple_cycles(temp_graph)))
     
     return is_connected, has_no_cycles
 
 ## Check radial and network connection
-line_to_remove = (2, 22)
-line_to_add = (9, 24)
 is_connected, has_no_cycles = check_radial_and_connected(G, line_to_remove, line_to_add)
 
 print(f"Is the network still connected? {is_connected}")
@@ -85,8 +97,7 @@ for branch in branches_in_path:
     reversed_branch = (branch[1], branch[0])
     if reversed_branch in new_branches_list:
         new_branches_list.remove(reversed_branch)
-        
-        
+              
 if line_to_add in new_branches_list:
     new_branches_list.remove(line_to_add)
 
@@ -103,11 +114,9 @@ plt.plot(list_vol[0], marker='o', linestyle='-', color='b')
 plt.xlabel('Bus No.')
 plt.ylabel('Voltage [pu]')
 plt.title('Voltages')
-plt.xticks(range(len(list_vol[0])), rotation=90)
+#plt.xticks(range(len(list_vol[0])), rotation=90)
 plt.show()
 
-Base_KVA=10000
-V_base=12.66  # In kV
 I_base=Base_KVA/V_base  # In Amperes
 
 current_absolute = {key: abs(value) for key, value in a.items()}
@@ -118,5 +127,5 @@ plt.plot(current_values, marker='o', linestyle='-', color='b')
 plt.xlabel('Branch No.')
 plt.ylabel('Current [Amperes]')
 plt.title('Branch Current')
-plt.xticks(range(len(list_vol[0])), rotation=90)
+#plt.xticks(range(len(list_vol[0])), rotation=90)
 plt.show()
