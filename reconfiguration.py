@@ -1,0 +1,122 @@
+import pandas as pd
+from math import asin
+import numpy as np
+import math
+from numpy import  sqrt, real, imag, pi
+from datafile import load_case
+import matplotlib.pyplot as plt
+from numpy import inf
+from scipy.sparse import dok_matrix, hstack
+from pyomo.environ import *
+import networkx as nx
+from collections import OrderedDict
+from load_flow_reconfiguration import perform_load_flow
+
+line_data = pd.read_excel('line_33.xlsx')
+load_data = pd.read_excel('load_data_33.xlsx')
+active_load=load_data['P (kW)']
+reactive_load=load_data['Q (kW)']
+case = load_case('case33bw.m')  
+
+Base_KVA=10000
+V_base=12.66  # In kV
+
+Z_base=(V_base*1000)**2 / (Base_KVA * 1000)
+
+G = case.G
+branches = case.branch_list
+branches_data= case.branch_data_list
+nbranch=len(branches)
+
+
+model = ConcreteModel()
+
+model.L=RangeSet(1,nbranch)
+model.line_switch = Var(model.L, domain=Binary)
+
+branches_data = [(x/Z_base, y/Z_base) for x, y in branches_data]  ## Per unit conversion
+
+## Convert branches_data to pu 
+n = len(case.demands)
+slots=24
+
+possible_new_lines = [(2, 6), (3, 5), (4, 7)]  # For optimization
+
+G = nx.Graph()
+G.add_edges_from(branches) # Original branches of network
+
+def check_radial_and_connected(graph, line_to_remove, line_to_add):
+    temp_graph = graph.copy()
+    temp_graph.remove_edge(*line_to_remove)  
+    temp_graph.add_edge(*line_to_add)  
+    
+    # Check if the network is still a single connected graph and has no cycles
+    is_connected = nx.is_connected(temp_graph)
+    has_no_cycles = not bool(list(nx.simple_cycles(temp_graph)))
+    
+    return is_connected, has_no_cycles
+
+## Check radial and network connection
+line_to_remove = (2, 22)
+line_to_add = (9, 24)
+is_connected, has_no_cycles = check_radial_and_connected(G, line_to_remove, line_to_add)
+
+print(f"Is the network still connected? {is_connected}")
+print(f"Does the network have no cycles? {has_no_cycles}")
+
+source = line_to_add[1]
+target = line_to_remove[1]
+try:
+    path = nx.shortest_path(G, source, target)
+    branches_in_path = [(path[i], path[i+1]) for i in range(len(path)-1)]
+except nx.NetworkXNoPath:
+    print("No path found.")
+
+
+new_branches_list = branches.copy()    
+new_branches_list.remove(line_to_remove)
+new_branches_list.append(line_to_add)
+
+for branch in branches_in_path:
+    if branch not in new_branches_list:
+        new_branches_list.append(branch)
+        
+for branch in branches_in_path:
+    reversed_branch = (branch[1], branch[0])
+    if reversed_branch in new_branches_list:
+        new_branches_list.remove(reversed_branch)
+        
+        
+if line_to_add in new_branches_list:
+    new_branches_list.remove(line_to_add)
+
+for i, (from_bus, to_bus) in enumerate(new_branches_list):
+    if from_bus == line_to_add[1]: 
+        print(i)
+        new_branches_list.insert(i, line_to_add)  
+        break     
+                 
+sorted_branches = sorted(new_branches_list, key=lambda x: x[1])
+list_vol, a = perform_load_flow(new_branches_list)  # Ideally the new_branch_list should have a particular (ascending) order.
+
+plt.plot(list_vol[0], marker='o', linestyle='-', color='b') 
+plt.xlabel('Bus No.')
+plt.ylabel('Voltage [pu]')
+plt.title('Voltages')
+plt.xticks(range(len(list_vol[0])), rotation=90)
+plt.show()
+
+Base_KVA=10000
+V_base=12.66  # In kV
+I_base=Base_KVA/V_base  # In Amperes
+
+current_absolute = {key: abs(value) for key, value in a.items()}
+current_amperes = {key: value * I_base for key, value in current_absolute.items()}
+current_values = list(current_amperes.values())
+
+plt.plot(current_values, marker='o', linestyle='-', color='b') 
+plt.xlabel('Branch No.')
+plt.ylabel('Current [Amperes]')
+plt.title('Branch Current')
+plt.xticks(range(len(list_vol[0])), rotation=90)
+plt.show()

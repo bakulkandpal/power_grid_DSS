@@ -21,54 +21,40 @@ V_base=12.66  # In kV
 Z_base=(V_base*1000)**2 / (Base_KVA * 1000)
 
 G = case.G
-branches = case.branch_list
-branches_data= case.branch_data_list
-
-branches_data = [(x/Z_base, y/Z_base) for x, y in branches_data]  ## Per unit conversion
-
-##Convert branches_data to pu 
-n = len(case.demands)
-slots=24
-nbranch=len(branches)
-fbus_list=[]
-tbus_list=[]
-
-for i in range(nbranch):
-    
-    fbus,tbus=branches[i]
-   
-    fbus_list.append(fbus)
-    tbus_list.append(tbus)
-
-def branch_list_data_dict_combine(branches,branches_data):
-        #Creating dictionary both with branch list and data        
-        fulldict= {}
-        for a,b in zip(branches, branches_data):
-            fulldict[a]=b
-        return (fulldict)    
-fulldict= branch_list_data_dict_combine(branches,branches_data)  
-
       
-def perform_load_flow(network_parameters):
+def perform_load_flow(branches):
+    
+    #branches = case.branch_list
+    branches_data= case.branch_data_list
+
+    branches_data = [(x/Z_base, y/Z_base) for x, y in branches_data]  ## Per unit conversion
+
+    ##Convert branches_data to pu 
+    n = len(case.demands)
+    slots=24
+    nbranch=len(branches)
+    fbus_list=[]
+    tbus_list=[]
+
+    for i in range(nbranch):
+        
+        fbus,tbus=branches[i]
+       
+        fbus_list.append(fbus)
+        tbus_list.append(tbus)
+
+    def branch_list_data_dict_combine(branches,branches_data):
+            #Creating dictionary both with branch list and data        
+            fulldict= {}
+            for a,b in zip(branches, branches_data):
+                fulldict[a]=b
+            return (fulldict)    
+    fulldict= branch_list_data_dict_combine(branches,branches_data)  
     
     active_load=load_data['P (kW)']
     reactive_load=load_data['Q (kW)']
     
-    bus_no = network_parameters.get('bus_no', [])
-    bus_load_factors = network_parameters.get('bus_load_factors', [])   
-    
-    print("Before modification:", active_load[bus_no].to_dict())
-
-    if bus_no:
-        for i in range(len(bus_no)):
-            bus = bus_no[i]
-            factor = bus_load_factors[i]
-            if bus in active_load.index:
-                active_load.at[bus] *= factor
-                
-    print("After modification:", active_load[bus_no].to_dict()) 
-         
-    
+   
     def load_flow(branches,branches_data,active_load,reactive_load):
        
         n = len(case.demands)
@@ -122,7 +108,8 @@ def perform_load_flow(network_parameters):
                 I_conj_list.append(I_conj)          
                              
          
-            a= {}
+            #a= {}
+            a = {i: 0+0j for i in range(nbranch)}
             
        
             for i in reversed(range(nbranch)):
@@ -130,17 +117,18 @@ def perform_load_flow(network_parameters):
          
               conn = [item for item in range(len(fbus_list)) if fbus_list[item] == tbus_list[i]]
          
+              #print(i)
              
               a[i]=sum(a[c] for c in conn) +I_conj_list[tbus_list[i]]  
-        
+                     
            
             for i in reversed(range(nbranch)):
                 
-                v[fbus_list[i]]=v[ tbus_list[i] ] + a[i]*full_dict_imp[fbus_list[i],tbus_list[i] ]
+                v[fbus_list[i]]=v[ tbus_list[i] ] + a[i]*full_dict_imp[fbus_list[i],tbus_list[i]]
               
             eps=abs(v[0]-v_slack)
             
-            if eps<0.001:
+            if eps<0.0001:
                 break
             
         
@@ -182,10 +170,4 @@ def perform_load_flow(network_parameters):
     
     list_vol, a = case_powerflow(active_load, reactive_load)
 
-    return list_vol, a
-
-    
-
-
-
-    
+    return list_vol, a    
