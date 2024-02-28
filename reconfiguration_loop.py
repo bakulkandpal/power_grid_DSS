@@ -22,8 +22,10 @@ case = load_case('case33bw.m')
 # Write lines_possible_remove tuples (from bus, to bus) considering the order of how current is flowing.
 lines_possible_remove = [(5,25), (2,22), (1,18), (10,11), (29,30)] # Give set/tuples of lines that can be removed from network.
 possible_new_lines = [(21, 32), (17, 24), (21, 17)]  # Give set/tuples of lines that can be added.
+new_line_impedances = [(0.0307, 0.0156), (0.045, 0.020), (0.050, 0.025)]  # (R,X) Impedance of the new line_to_add in Ohms
 
 
+######################### Rest of code below
 Base_KVA=10000
 V_base=12.66  # In kV
 Z_base=(V_base*1000)**2 / (Base_KVA * 1000)
@@ -33,7 +35,13 @@ branches = case.branch_list
 branches_data= case.branch_data_list
 nbranch=len(branches)
 
-branches_data = [(x/Z_base, y/Z_base) for x, y in branches_data]  ## Per unit conversion
+branches_copy = branches.copy()
+branches_data_copy = branches_data.copy()    
+
+for line, impedance in zip(possible_new_lines, new_line_impedances):
+    branches_copy.append(line)
+    branches_data_copy.append(impedance)
+
 
 ## Convert branches_data to pu 
 n = len(case.demands)
@@ -47,23 +55,19 @@ def check_radial_and_connected(graph, line_to_remove, line_to_add):
     temp_graph.remove_edge(*line_to_remove)  
     temp_graph.add_edge(*line_to_add)  
     
-    # Check if the network is still a single connected graph and has no cycles
+    # Check if the network is still a single connected graph and has no cycles, and so is radial
     is_connected = nx.is_connected(temp_graph)
     has_no_cycles = not bool(list(nx.simple_cycles(temp_graph)))
     
     return is_connected, has_no_cycles
 
-successful_combinations = []
+successful_combinations = []   # All scenarios of removing and adding lines that are feasible. Creating the search space for reconfiguration.
 for line_to_remove in lines_possible_remove:
     for line_to_add in possible_new_lines:
         is_connected, has_no_cycles = check_radial_and_connected(G, line_to_remove, line_to_add)       
         if is_connected and has_no_cycles:
             successful_combinations.append((line_to_remove, line_to_add))
             
-
-# line_to_remove = (10, 11)  # Choose line to remove. (from bus, to bus) (IEEE 33 bus - substation is bus 0)
-# line_to_add = (24, 17) 
-
 
 results = []  
 for line_to_remove, line_to_add in successful_combinations:
@@ -120,8 +124,17 @@ for line_to_remove, line_to_add in successful_combinations:
             break     
 
     sorted_branches = sorted(new_branches_list, key=lambda x: x[1])
-    list_vol, a = perform_load_flow(new_branches_list)  
     
+    new_branches_data = []  
+    for branch in new_branches_list:
+        if branch in branches_copy:
+            index = branches_copy.index(branch)  # Finding index of branch in branches_copy
+        elif branch[::-1] in branches_copy:
+            index = branches_copy.index(branch[::-1]) # Finding index of reversed branch in branches_copy
+        corresponding_data = branches_data_copy[index]
+        new_branches_data.append(corresponding_data)   # Reordering the branch impedance data based on new_branches_list
+        
+    list_vol, a = perform_load_flow(new_branches_list, new_branches_data)      
     results.append((list_vol, a))
 
 for i, (voltages, _) in enumerate(results):
@@ -129,7 +142,7 @@ for i, (voltages, _) in enumerate(results):
     plt.plot(voltages[0], marker='o', linestyle='-', label=f'Scenario {i}')
     plt.title(f'Voltage Profile for Scenario {i}')
     plt.xlabel('Bus No.')
-    plt.ylabel('Voltage (p.u.)')
-    plt.grid(True)
+    plt.ylabel('Voltage [p.u.]')
+    plt.grid(True, axis ='x')
     plt.legend()
     plt.show()

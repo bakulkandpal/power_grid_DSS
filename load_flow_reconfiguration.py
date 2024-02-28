@@ -17,15 +17,15 @@ case = load_case('case33bw.m')
 
 Base_KVA=10000
 V_base=12.66  # In kV
-
 Z_base=(V_base*1000)**2 / (Base_KVA * 1000)
 
 G = case.G
       
-def perform_load_flow(branches):
+def perform_load_flow(branches, new_branches_data):
     
     #branches = case.branch_list
-    branches_data= case.branch_data_list
+    #branches_data= case.branch_data_list
+    branches_data = new_branches_data
 
     branches_data = [(x/Z_base, y/Z_base) for x, y in branches_data]  ## Per unit conversion
 

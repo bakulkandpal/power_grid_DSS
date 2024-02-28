@@ -21,8 +21,11 @@ case = load_case('case33bw.m')
 
 # Write both tuples (from bus, to bus) considering the order of how current is flowing or will flow after new connection.
 line_to_remove = (1, 18)  # Choose line to remove. (from bus, to bus) (IEEE 33 bus - substation is bus 0)
-line_to_add = (21, 32)   # Choose line to add (IEEE 33 bus)
+line_to_add = (21, 32)   # Choose line to add (based on IEEE 33 bus)
+new_line_impedance=(0.0307, 0.0156)  # (R,X) Impedance of the new line_to_add in Ohms
 
+
+######################### Rest of code below
 G = case.G
 branches = case.branch_list
 branches_data= case.branch_data_list
@@ -45,13 +48,15 @@ try:
         line_to_add =  reversed_line_to_add
 except nx.NetworkXNoPath:
     print("No path")
-
+    
+branches_copy = branches.copy()
+branches_data_copy = branches_data.copy()    
+branches_copy.append(line_to_add)
+branches_data_copy.append(new_line_impedance)
 
 Base_KVA=10000
 V_base=12.66  # In kV
 Z_base=(V_base*1000)**2 / (Base_KVA * 1000)
-
-branches_data = [(x/Z_base, y/Z_base) for x, y in branches_data]  ## Per unit conversion
 
 ## Convert branches_data to pu 
 n = len(case.demands)
@@ -108,7 +113,18 @@ for i, (from_bus, to_bus) in enumerate(new_branches_list):
         break     
                  
 sorted_branches = sorted(new_branches_list, key=lambda x: x[1])
-list_vol, a = perform_load_flow(new_branches_list)  # Ideally the new_branch_list should have a particular (ascending) order.
+
+new_branches_data = []  
+for branch in new_branches_list:
+    if branch in branches_copy:
+        index = branches_copy.index(branch)  # Finding index of branch in branches_copy
+    elif branch[::-1] in branches_copy:
+        index = branches_copy.index(branch[::-1]) # Finding index of reversed branch in branches_copy
+    corresponding_data = branches_data_copy[index]
+    new_branches_data.append(corresponding_data)   # Reordering the branch impedance data based on new_branches_list
+
+
+list_vol, a = perform_load_flow(new_branches_list, new_branches_data)  # Ideally the new_branch_list should have a particular (ascending) order.
 
 plt.plot(list_vol[0], marker='o', linestyle='-', color='b') 
 plt.xlabel('Bus No.')
