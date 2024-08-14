@@ -12,9 +12,9 @@ pipeline {
         stage('Setup Python Environment') {
             steps {
                 // Create and activate a virtual environment, then install dependencies
-                sh '''
+                bat '''
                 python -m venv venv
-                source venv/bin/activate
+                call venv\\Scripts\\activate
                 pip install -r requirements.txt
                 '''
             }
@@ -24,7 +24,7 @@ pipeline {
             steps {
                 // Placeholder for running your application or scripts
                 echo 'Running application...'
-                // sh 'python your_script.py'  # Uncomment and replace with your script
+                // bat 'python your_script.py'  # Uncomment and replace with your script
             }
         }
     }
