@@ -1,44 +1,50 @@
 pipeline {
     agent any
 
+    options {
+        timeout(time: 1, unit: 'HOURS')
+        disableConcurrentBuilds()
+    }
+
     stages {
         stage('Checkout') {
             steps {
-                // Checkout the code from the GitHub repository, specifying the main branch
-                git branch: 'main', url: 'https://github.com/bakulkandpal/power_grid_DSS.git'
+                checkout scm
             }
         }
-
-        stage('Setup Python Environment') {
+        
+        stage('Install Dependencies') {
             steps {
-                // Create and activate a virtual environment, then install dependencies
-                bat '''
-                python -m venv venv
-                call venv\\Scripts\\activate
-                pip install -r requirements.txt
-                '''
+                sh 'pip install -r requirements.txt'
             }
         }
-
-        stage('Run Application') {
+        
+        stage('Run Tests') {
             steps {
-                // Placeholder for running your application or scripts
-                echo 'Running application...'
-                // bat 'python your_script.py'  # Uncomment and replace with your script
+                sh 'python -m unittest discover tests'  // Assuming you have tests in a 'tests' directory
+            }
+        }
+        
+        stage('PyInstaller Build') {
+            steps {
+                script {
+                    def VERSION = sh(script: "grep '^## Version' README.md | awk '{print \$3}'", returnStdout: true).trim()
+                    def BRANCH = env.BRANCH_NAME.replaceAll(/[:\/ ]/, '_')
+                    def FILE_NAME = "power_grid_DSS_${VERSION}_${env.BUILD_NUMBER}_${BRANCH}"
+                    
+                    sh "pip install pyinstaller==6.1.0"
+                    sh "pyinstaller --onefile --name ${FILE_NAME} your_main_script.py"  // Replace with your actual main script
+                }
             }
         }
     }
 
     post {
         always {
-            // Clean up the workspace after the pipeline runs
             cleanWs()
         }
         success {
-            echo 'Pipeline executed successfully!'
-        }
-        failure {
-            echo 'Pipeline execution failed.'
+            archiveArtifacts artifacts: 'dist/*', fingerprint: true
         }
     }
 }
