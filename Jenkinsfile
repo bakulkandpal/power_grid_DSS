@@ -38,10 +38,11 @@ pipeline {
                     call venv\\Scripts\\activate.bat
                     pip install pyinstaller==6.1.0
                     for /f "tokens=3" %%i in ('type README.md ^| findstr /R "^## Version"') do set VERSION=%%i
-                    set BRANCH=%BRANCH_NAME::=%
+                    set BRANCH=%BRANCH_NAME%
+                    set BRANCH=%BRANCH::=_%
                     set BRANCH=%BRANCH:/=_%
                     set FILE_NAME=power_grid_DSS_%VERSION%_%BUILD_NUMBER%_%BRANCH%
-                    pyinstaller --onefile --name %FILE_NAME% your_main_script.py
+                    pyinstaller --onefile --name "%FILE_NAME%" reconfiguration.py
                 '''
             }
         }
