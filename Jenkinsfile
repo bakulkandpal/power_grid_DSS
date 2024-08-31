@@ -31,16 +31,27 @@ pipeline {
                 '''
             }
         }
-
+        
         stage('PyInstaller Build') {
-        steps {
-            bat '''
-                call venv\\Scripts\\activate.bat
-                pip install pyinstaller==6.1.0
-                set FILE_NAME=power_grid_DSS_%BUILD_NUMBER%
-                echo Safe filename: %FILE_NAME%
-                pyinstaller --onefile --name "%FILE_NAME%" reconfiguration.py
-            '''
+            steps {
+                bat '''
+                    call venv\\Scripts\\activate.bat
+                    pip install pyinstaller==6.1.0
+                    for /f "tokens=3" %%i in ('type README.md ^| findstr /R "^## Version"') do set VERSION=%%i
+                    set SAFE_BRANCH_NAME=%BRANCH_NAME:/=_%
+                    set SAFE_BRANCH_NAME=%SAFE_BRANCH_NAME::=_%
+                    set SAFE_BRANCH_NAME=%SAFE_BRANCH_NAME:;=_%
+                    set SAFE_BRANCH_NAME=%SAFE_BRANCH_NAME:"=_%
+                    set SAFE_BRANCH_NAME=%SAFE_BRANCH_NAME:<=_%
+                    set SAFE_BRANCH_NAME=%SAFE_BRANCH_NAME:>=_%
+                    set SAFE_BRANCH_NAME=%SAFE_BRANCH_NAME:|=_%
+                    set SAFE_BRANCH_NAME=%SAFE_BRANCH_NAME:?=_%
+                    set SAFE_BRANCH_NAME=%SAFE_BRANCH_NAME:*=_%
+                    set FILE_NAME=power_grid_DSS_%VERSION%_%BUILD_NUMBER%_%SAFE_BRANCH_NAME%
+                    echo Safe filename: %FILE_NAME%
+                    pyinstaller --onefile --name "%FILE_NAME%" reconfiguration.py
+                '''
+            }
         }
     }
 
