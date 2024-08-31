@@ -46,11 +46,11 @@ pipeline {
     }
 
     post {
-        always {
-            cleanWs()
-        }
         success {
             archiveArtifacts artifacts: 'dist\\*', fingerprint: true
+        }
+        always {
+            cleanWs()
         }
     }
 }
