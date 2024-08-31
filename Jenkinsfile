@@ -39,7 +39,7 @@ pipeline {
                 pip install pyinstaller==6.1.0
                 set FILE_NAME=power_grid_DSS_%BUILD_NUMBER%
                 echo Safe filename: %FILE_NAME%
-                pyinstaller --onefile --name "%FILE_NAME%" your_main_script.py
+                pyinstaller --onefile --name "%FILE_NAME%" reconfiguration.py
             '''
         }
     }
