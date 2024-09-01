@@ -52,15 +52,12 @@ pipeline {
     }
 
     post {
-        success {
+        always {
             bat 'echo Current directory:'
             bat 'cd'
             bat 'echo Directory contents:'
             bat 'dir /s'
             archiveArtifacts artifacts: 'artifacts\\*', fingerprint: true, allowEmptyArchive: true
-        }
-        always {
-            cleanWs()
         }
     }
 }
